@@ -21,29 +21,34 @@ Every project goes through this process. A todo list, a single-function utility,
 
 ## Checklist
 
-You MUST create a task for each of these items and complete them in order:
+**CRITICAL: Create tasks for ALL steps below BEFORE calling `EnterPlanMode`.**
+Plan mode injects its own exit instructions that override skill behavior. Without pre-created tasks, the LLM skips `writing-plans` and jumps straight to implementation. Tasks survive plan mode and anchor correct post-exit behavior.
 
-1. **Enter plan mode** — call `EnterPlanMode` immediately
+1. **Enter plan mode** — call `EnterPlanMode`
 2. **Explore project context** — check files, docs, recent commits
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches with critique** — trade-offs, recommendation, and Risks per approach
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Finalize design in plan file** — write to `.claude/plans/*.md` with `NEXT STEP` directive header
 7. **Exit plan mode** — call `ExitPlanMode` for user approval
+8. **Invoke writing-plans** — invoke `superpowers:writing-plans` to create the implementation plan
 
 ## Process Flow
 
 ```dot
 digraph brainstorming {
-    "EnterPlanMode" [shape=box style=filled fillcolor=lightyellow];
+    "Create tasks for ALL steps" [shape=box style=filled fillcolor=lightyellow];
+    "EnterPlanMode" [shape=box];
     "Explore project context" [shape=box];
     "Ask clarifying questions" [shape=box];
     "Propose approaches + critique" [shape=box];
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
     "Write design to plan file\n(with NEXT STEP directive)" [shape=box];
-    "ExitPlanMode" [shape=doublecircle];
+    "ExitPlanMode" [shape=box];
+    "Invoke writing-plans" [shape=doublecircle];
 
+    "Create tasks for ALL steps" -> "EnterPlanMode";
     "EnterPlanMode" -> "Explore project context";
     "Explore project context" -> "Ask clarifying questions";
     "Ask clarifying questions" -> "Propose approaches + critique";
@@ -52,10 +57,11 @@ digraph brainstorming {
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design to plan file\n(with NEXT STEP directive)" [label="yes"];
     "Write design to plan file\n(with NEXT STEP directive)" -> "ExitPlanMode";
+    "ExitPlanMode" -> "Invoke writing-plans";
 }
 ```
 
-**The terminal state is `ExitPlanMode`.** The plan file itself contains a `NEXT STEP` directive that tells the next session to invoke `superpowers:writing-plans` — this survives context clears.
+**The terminal state is invoking `writing-plans`.** After `ExitPlanMode`, the pre-created task list anchors the LLM to invoke `superpowers:writing-plans`. The plan file also contains a `NEXT STEP` directive as a backup for context clears.
 
 ## The Process
 
@@ -84,11 +90,11 @@ digraph brainstorming {
 - Be ready to go back and clarify if something doesn't make sense
 
 **Finalizing:**
-- Write the approved design to the plan file (`.claude/plans/*.md`)
 - The plan file MUST start with this directive header:
   ```
   > **For Claude:** NEXT STEP: Invoke `superpowers:writing-plans` to create the implementation plan from this design.
   ```
+- Write the approved design to the plan file (`.claude/plans/*.md`)
 - Call `ExitPlanMode` — no files are created in the project
 
 ## Key Principles

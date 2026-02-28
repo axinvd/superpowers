@@ -132,12 +132,27 @@ Wait for all agents. Categorize each result:
 
 ### 7. Commit Group
 
+Each git command is a **separate Bash call** (never chain with `&&`):
+
+**Call 1 — stage files:**
 ```bash
 git add {all files from this group's tasks}
-git commit -m "{type}: {brief summary of what was built}"
 ```
 
-One commit per group. Orchestrator handles all git.
+**Call 2 — commit:**
+```bash
+git commit -m "{type}: {brief summary of what was built}
+
+{Optional body text explaining what changed and why.}
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+```
+
+**Rules:**
+- One commit per group. Orchestrator handles all git.
+- Do NOT chain `git add` and `git commit` in one call
+- Do NOT use HEREDOC `$(cat <<'EOF' ... EOF)` — use a plain quoted string
+- Multi-line messages: put newlines directly inside the quotes
 
 ### 8. Next Group
 
@@ -180,7 +195,8 @@ Worker 1.2:
   - Files: src/middleware/auth.py, tests/middleware/test_auth.py
   - Tests: 6/6 passing
 
-[git add + commit: "feat: add user model and auth middleware"]
+[git add src/models/user.py src/middleware/auth.py tests/...]
+[git commit -m "feat: add user model and auth middleware"]
 [Mark Tasks 1.1, 1.2 complete]
 
 Group 2: (1 task)
@@ -191,7 +207,8 @@ Worker 2.1:
   - Success: added login endpoint
   - Tests: 5/5 passing
 
-[git add + commit: "feat: add login endpoint"]
+[git add src/routes/login.py tests/routes/test_login.py]
+[git commit -m "feat: add login endpoint"]
 [Mark Task 2.1 complete]
 
 [All groups done → finishing-a-development-branch]
