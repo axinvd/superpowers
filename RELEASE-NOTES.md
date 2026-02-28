@@ -1,5 +1,35 @@
 # Superpowers Release Notes
 
+## v4.3.2 (2026-02-28)
+
+### Fixed
+
+**Git commit flow: separate commands, no HEREDOC**
+
+The subagent-driven-development skill was chaining `git add` and `git commit` in a single Bash call and using `$(cat <<'EOF' ... EOF)` for commit messages. The command substitution triggered "Command contains $() command substitution" permission prompts every time, preventing global auto-approve configuration.
+
+- `git add` and `git commit` are now separate Bash calls (never chained with `&&`)
+- Commit messages use plain quoted strings instead of HEREDOC
+- Explicit rules added to prevent regression
+
+**Brainstorming task ordering prevents skipping to implementation**
+
+When `EnterPlanMode` was called before creating tasks, plan mode's exit instructions overrode the brainstorming skill's workflow and the LLM jumped straight to implementation instead of invoking `writing-plans`.
+
+- Tasks must now be created BEFORE entering plan mode
+- Added step 8 "Invoke writing-plans" as explicit terminal state
+- Tasks survive plan mode exit and anchor correct post-exit behavior
+
+### Removed
+
+**Obsolete design documents**
+
+Removed outdated plan documents that are no longer relevant:
+- `docs/plans/2025-11-22-opencode-support-design.md`
+- `docs/plans/2025-11-22-opencode-support-implementation.md`
+- `docs/plans/2025-11-28-skills-improvements-from-user-feedback.md`
+- `docs/plans/2026-02-28-parallel-execution-design.md`
+
 ## v4.3.1 (2026-02-21)
 
 ### Added
