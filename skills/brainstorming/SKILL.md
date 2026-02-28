@@ -28,9 +28,8 @@ You MUST create a task for each of these items and complete them in order:
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches with critique** — trade-offs, recommendation, and Risks per approach
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
-6. **Finalize design in plan file** — write to `.claude/plans/*.md`
+6. **Finalize design in plan file** — write to `.claude/plans/*.md` with `NEXT STEP` directive header
 7. **Exit plan mode** — call `ExitPlanMode` for user approval
-8. **Invoke writing-plans** — after design approval, invoke `superpowers:writing-plans` to create the detailed implementation plan
 
 ## Process Flow
 
@@ -42,9 +41,8 @@ digraph brainstorming {
     "Propose approaches + critique" [shape=box];
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
-    "Write design to plan file" [shape=box];
-    "ExitPlanMode (design)" [shape=box];
-    "Invoke writing-plans" [shape=doublecircle];
+    "Write design to plan file\n(with NEXT STEP directive)" [shape=box];
+    "ExitPlanMode" [shape=doublecircle];
 
     "EnterPlanMode" -> "Explore project context";
     "Explore project context" -> "Ask clarifying questions";
@@ -52,13 +50,12 @@ digraph brainstorming {
     "Propose approaches + critique" -> "Present design sections";
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design to plan file" [label="yes"];
-    "Write design to plan file" -> "ExitPlanMode (design)";
-    "ExitPlanMode (design)" -> "Invoke writing-plans";
+    "User approves design?" -> "Write design to plan file\n(with NEXT STEP directive)" [label="yes"];
+    "Write design to plan file\n(with NEXT STEP directive)" -> "ExitPlanMode";
 }
 ```
 
-**The terminal state is invoking `writing-plans`.** After design approval via `ExitPlanMode`, immediately invoke `superpowers:writing-plans` to create the detailed implementation plan. This triggers a second plan mode cycle for the implementation plan.
+**The terminal state is `ExitPlanMode`.** The plan file itself contains a `NEXT STEP` directive that tells the next session to invoke `superpowers:writing-plans` — this survives context clears.
 
 ## The Process
 
@@ -88,8 +85,11 @@ digraph brainstorming {
 
 **Finalizing:**
 - Write the approved design to the plan file (`.claude/plans/*.md`)
+- The plan file MUST start with this directive header:
+  ```
+  > **For Claude:** NEXT STEP: Invoke `superpowers:writing-plans` to create the implementation plan from this design.
+  ```
 - Call `ExitPlanMode` — no files are created in the project
-- After user approves: invoke `superpowers:writing-plans` to create the detailed implementation plan
 
 ## Key Principles
 
@@ -100,4 +100,4 @@ digraph brainstorming {
 - **Incremental validation** - Present design, get approval before moving on
 - **Be flexible** - Go back and clarify when something doesn't make sense
 - **No project files** - Everything stays in the plan file until implementation begins
-- **Design then plan** - After design approval, always proceed to writing-plans for the detailed implementation plan
+- **Self-contained plan files** - Plan files carry their own "next step" directive so the workflow survives context clears
