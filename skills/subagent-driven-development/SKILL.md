@@ -5,35 +5,25 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching fresh subagent per task, with two-stage review after each: spec compliance review first, then code quality review.
+Execute plan by dispatching parallel groups of scoped worker subagents with per-task model selection.
 
-**Core principle:** Fresh subagent per task + two-stage review (spec then quality) = high quality, fast iteration
+**Core principle:** Parallel dispatch per group + scoped workers + orchestrator commits = fast, conflict-free execution.
 
 ## When to Use
 
 ```dot
 digraph when_to_use {
     "Have implementation plan?" [shape=diamond];
-    "Tasks mostly independent?" [shape=diamond];
-    "Stay in this session?" [shape=diamond];
+    "Plan has parallel groups?" [shape=diamond];
     "subagent-driven-development" [shape=box];
-    "executing-plans" [shape=box];
     "Manual execution or brainstorm first" [shape=box];
 
-    "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
+    "Have implementation plan?" -> "Plan has parallel groups?" [label="yes"];
     "Have implementation plan?" -> "Manual execution or brainstorm first" [label="no"];
-    "Tasks mostly independent?" -> "Stay in this session?" [label="yes"];
-    "Tasks mostly independent?" -> "Manual execution or brainstorm first" [label="no - tightly coupled"];
-    "Stay in this session?" -> "subagent-driven-development" [label="yes"];
-    "Stay in this session?" -> "executing-plans" [label="no - parallel session"];
+    "Plan has parallel groups?" -> "subagent-driven-development" [label="yes"];
+    "Plan has parallel groups?" -> "subagent-driven-development" [label="no - works for sequential too"];
 }
 ```
-
-**vs. Executing Plans (parallel session):**
-- Same session (no context switch)
-- Fresh subagent per task (no context pollution)
-- Two-stage review after each task: spec compliance first, then code quality
-- Faster iteration (no human-in-loop between tasks)
 
 ## The Process
 
@@ -41,52 +31,110 @@ digraph when_to_use {
 digraph process {
     rankdir=TB;
 
-    subgraph cluster_per_task {
-        label="Per Task";
-        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
-        "Implementer subagent asks questions?" [shape=diamond];
-        "Answer questions, provide context" [shape=box];
-        "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
-        "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
-        "Implementer subagent fixes spec gaps" [shape=box];
-        "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
-        "Code quality reviewer subagent approves?" [shape=diamond];
-        "Implementer subagent fixes quality issues" [shape=box];
-        "Mark task complete in TodoWrite" [shape=box];
+    "Read plan, parse groups/tasks/files/models" [shape=box];
+    "Validate no file overlaps within groups" [shape=box];
+    "Create TodoWrite with all tasks" [shape=box];
+
+    subgraph cluster_per_group {
+        label="Per Group";
+        "Dispatch all tasks in parallel (scoped workers)" [shape=box];
+        "Workers ask questions?" [shape=diamond];
+        "Answer questions, re-dispatch" [shape=box];
+        "Wait for all workers to complete" [shape=box];
+        "Handle results (success/failure/out-of-scope)" [shape=box];
+        "Orchestrator commits group" [shape=box];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
-    "More tasks remain?" [shape=diamond];
-    "Dispatch final code reviewer subagent for entire implementation" [shape=box];
+    "More groups?" [shape=diamond];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
-    "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
-    "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
-    "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer subagent confirms code matches spec?" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
-    "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
-    "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final code reviewer subagent for entire implementation" -> "Use superpowers:finishing-a-development-branch";
+    "Read plan, parse groups/tasks/files/models" -> "Validate no file overlaps within groups";
+    "Validate no file overlaps within groups" -> "Create TodoWrite with all tasks";
+    "Create TodoWrite with all tasks" -> "Dispatch all tasks in parallel (scoped workers)";
+    "Dispatch all tasks in parallel (scoped workers)" -> "Workers ask questions?";
+    "Workers ask questions?" -> "Answer questions, re-dispatch" [label="yes"];
+    "Answer questions, re-dispatch" -> "Dispatch all tasks in parallel (scoped workers)";
+    "Workers ask questions?" -> "Wait for all workers to complete" [label="no"];
+    "Wait for all workers to complete" -> "Handle results (success/failure/out-of-scope)";
+    "Handle results (success/failure/out-of-scope)" -> "Orchestrator commits group";
+    "Orchestrator commits group" -> "More groups?";
+    "More groups?" -> "Dispatch all tasks in parallel (scoped workers)" [label="yes"];
+    "More groups?" -> "Use superpowers:finishing-a-development-branch" [label="no"];
 }
 ```
 
-## Prompt Templates
+## Prompt Template
 
-- `./implementer-prompt.md` - Dispatch implementer subagent
-- `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
-- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
+- `./scoped-worker-prompt.md` — Dispatch scoped worker subagent
+
+## Step-by-Step
+
+### 1. Parse the Plan
+
+Read the plan file once. Extract:
+- All groups with their tasks
+- Per task: full text, file lists, model annotation, dependencies
+- Store everything — workers get full task text, not file references
+
+### 2. Validate Groups
+
+For each group, verify no two tasks share a write file. If overlap found:
+- Stop and warn the user
+- Suggest moving conflicting task to next group
+
+### 3. Create TodoWrite
+
+Create a TodoWrite entry for every task across all groups.
+
+### 4. Execute Group
+
+Dispatch ALL tasks in the group as parallel Task agents in a single message:
+
+```
+Task("Implement Task 1.1: Create user model",
+  model: "haiku",
+  subagent_type: "general-purpose",
+  prompt: [filled scoped-worker-prompt.md])
+
+Task("Implement Task 1.2: Create auth middleware",
+  model: "sonnet",
+  subagent_type: "general-purpose",
+  prompt: [filled scoped-worker-prompt.md])
+// Both run concurrently
+```
+
+Fill in the scoped-worker-prompt.md template for each task:
+- `{N.M}` and `{task name}` from plan
+- `{file list}` from task's Files: section
+- `{FULL TEXT}` — paste the entire task description
+- `{context}` — where this fits, what prior groups produced
+- `{model}` — haiku/sonnet/opus from plan annotation
+
+### 5. Collect Results
+
+Wait for all agents. Categorize each result:
+
+- **Success** — collect, mark task complete in TodoWrite
+- **Failure** — orchestrator diagnoses. Either fix directly or re-dispatch worker with more context. After 2 failures on the same task, handle manually or ask user.
+- **Out-of-scope request** — if small (<5 lines): orchestrator fixes directly. If significant: create a follow-up task in the next group.
+
+### 6. Commit Group
+
+```bash
+git add {all files from this group's tasks}
+git commit -m "feat: group N — {brief summary of what was built}"
+```
+
+One commit per group. Orchestrator handles all git.
+
+### 7. Next Group
+
+Move to the next group. Repeat from step 4.
+
+### 8. Finish
+
+After all groups complete:
+- **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
 
 ## Example Workflow
 
@@ -94,149 +142,83 @@ digraph process {
 You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read plan file once: docs/plans/feature-plan.md]
-[Extract all 5 tasks with full text and context]
-[Create TodoWrite with all tasks]
+[Parse 2 groups: Group 1 has Tasks 1.1 + 1.2, Group 2 has Task 2.1]
+[Create TodoWrite with all 3 tasks]
 
-Task 1: Hook installation script
+Group 1: (2 tasks in parallel)
 
-[Get Task 1 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Dispatch Task 1.1 worker: model haiku, files: src/models/user.py, tests/models/test_user.py]
+[Dispatch Task 1.2 worker: model sonnet, files: src/middleware/auth.py, tests/middleware/test_auth.py]
+// Both run concurrently
 
-Implementer: "Before I begin - should the hook be installed at user or system level?"
+Worker 1.1: "Before I begin - should UserModel use dataclass or Pydantic?"
+Worker 1.2: [No questions, proceeds]
 
-You: "User level (~/.config/superpowers/hooks/)"
+You: "Pydantic BaseModel"
 
-Implementer: "Got it. Implementing now..."
-[Later] Implementer:
-  - Implemented install-hook command
-  - Added tests, 5/5 passing
-  - Self-review: Found I missed --force flag, added it
-  - Committed
+[Re-dispatch Worker 1.1 with answer]
 
-[Dispatch spec compliance reviewer]
-Spec reviewer: ✅ Spec compliant - all requirements met, nothing extra
+Worker 1.1:
+  - Success: created user model with Pydantic
+  - Files: src/models/user.py, tests/models/test_user.py
+  - Tests: 4/4 passing
 
-[Get git SHAs, dispatch code quality reviewer]
-Code reviewer: Strengths: Good test coverage, clean. Issues: None. Approved.
+Worker 1.2:
+  - Success: created auth middleware
+  - Files: src/middleware/auth.py, tests/middleware/test_auth.py
+  - Tests: 6/6 passing
 
-[Mark Task 1 complete]
+[git add + commit: "feat: group 1 — user model, auth middleware"]
+[Mark Tasks 1.1, 1.2 complete]
 
-Task 2: Recovery modes
+Group 2: (1 task)
 
-[Get Task 2 text and context (already extracted)]
-[Dispatch implementation subagent with full task text + context]
+[Dispatch Task 2.1 worker: model sonnet, files: src/routes/login.py, tests/routes/test_login.py]
 
-Implementer: [No questions, proceeds]
-Implementer:
-  - Added verify/repair modes
-  - 8/8 tests passing
-  - Self-review: All good
-  - Committed
+Worker 2.1:
+  - Success: added login endpoint
+  - Tests: 5/5 passing
 
-[Dispatch spec compliance reviewer]
-Spec reviewer: ❌ Issues:
-  - Missing: Progress reporting (spec says "report every 100 items")
-  - Extra: Added --json flag (not requested)
+[git add + commit: "feat: group 2 — login endpoint"]
+[Mark Task 2.1 complete]
 
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
-
-[Spec reviewer reviews again]
-Spec reviewer: ✅ Spec compliant now
-
-[Dispatch code quality reviewer]
-Code reviewer: Strengths: Solid. Issues (Important): Magic number (100)
-
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
-
-[Code reviewer reviews again]
-Code reviewer: ✅ Approved
-
-[Mark Task 2 complete]
-
-...
-
-[After all tasks]
-[Dispatch final code-reviewer]
-Final reviewer: All requirements met, ready to merge
-
-Done!
+[All groups done → finishing-a-development-branch]
 ```
-
-## Advantages
-
-**vs. Manual execution:**
-- Subagents follow TDD naturally
-- Fresh context per task (no confusion)
-- Parallel-safe (subagents don't interfere)
-- Subagent can ask questions (before AND during work)
-
-**vs. Executing Plans:**
-- Same session (no handoff)
-- Continuous progress (no waiting)
-- Review checkpoints automatic
-
-**Efficiency gains:**
-- No file reading overhead (controller provides full text)
-- Controller curates exactly what context is needed
-- Subagent gets complete information upfront
-- Questions surfaced before work begins (not after)
-
-**Quality gates:**
-- Self-review catches issues before handoff
-- Two-stage review: spec compliance, then code quality
-- Review loops ensure fixes actually work
-- Spec compliance prevents over/under-building
-- Code quality ensures implementation is well-built
-
-**Cost:**
-- More subagent invocations (implementer + 2 reviewers per task)
-- Controller does more prep work (extracting all tasks upfront)
-- Review loops add iterations
-- But catches issues early (cheaper than debugging later)
 
 ## Red Flags
 
 **Never:**
 - Start implementation on main/master branch without explicit user consent
-- Skip reviews (spec compliance OR code quality)
-- Proceed with unfixed issues
-- Dispatch multiple implementation subagents in parallel (conflicts)
-- Make subagent read plan file (provide full text instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
-- Ignore subagent questions (answer before letting them proceed)
-- Accept "close enough" on spec compliance (spec reviewer found issues = not done)
-- Skip review loops (reviewer found issues = implementer fixes = review again)
-- Let implementer self-review replace actual review (both are needed)
-- **Start code quality review before spec compliance is ✅** (wrong order)
-- Move to next task while either review has open issues
+- Dispatch workers without filling in the scoped-worker-prompt.md template completely
+- Let workers run git commands (orchestrator only)
+- Proceed if file overlap detected within a group
+- Re-dispatch indefinitely — 2 failures max per task, then escalate
+- Skip TodoWrite tracking
+- Let workers commit (orchestrator commits per group)
+- Make workers read plan file (provide full text instead)
 
-**If subagent asks questions:**
+**If worker asks questions:**
 - Answer clearly and completely
 - Provide additional context if needed
-- Don't rush them into implementation
+- Re-dispatch with answers
 
-**If reviewer finds issues:**
-- Implementer (same subagent) fixes them
-- Reviewer reviews again
-- Repeat until approved
-- Don't skip the re-review
+**If worker returns out-of-scope request:**
+- Small fix: orchestrator handles directly
+- Large fix: new task in next group
+- Never tell worker to widen its scope
 
-**If subagent fails task:**
-- Dispatch fix subagent with specific instructions
-- Don't try to fix manually (context pollution)
+**If worker fails:**
+- Read failure report
+- Provide more context or fix the blocker
+- Re-dispatch (max 2 attempts)
+- After 2 failures: handle manually or ask user
 
 ## Integration
 
 **Required workflow skills:**
-- **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
-- **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:requesting-code-review** - Code review template for reviewer subagents
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+- **superpowers:using-git-worktrees** — REQUIRED: Set up isolated workspace before starting
+- **superpowers:writing-plans** — Creates the plan this skill executes
+- **superpowers:finishing-a-development-branch** — Complete development after all tasks
 
-**Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
-
-**Alternative workflow:**
-- **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+**Workers should follow:**
+- **superpowers:test-driven-development** — Workers follow TDD for each task
