@@ -31,6 +31,7 @@ digraph when_to_use {
 digraph process {
     rankdir=TB;
 
+    "Review plan critically" [shape=box];
     "Read plan, parse groups/tasks/files/models" [shape=box];
     "Validate no file overlaps within groups" [shape=box];
     "Create TodoWrite with all tasks" [shape=box];
@@ -48,6 +49,7 @@ digraph process {
     "More groups?" [shape=diamond];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
+    "Review plan critically" -> "Read plan, parse groups/tasks/files/models";
     "Read plan, parse groups/tasks/files/models" -> "Validate no file overlaps within groups";
     "Validate no file overlaps within groups" -> "Create TodoWrite with all tasks";
     "Create TodoWrite with all tasks" -> "Dispatch all tasks in parallel (scoped workers)";
@@ -69,24 +71,34 @@ digraph process {
 
 ## Step-by-Step
 
-### 1. Parse the Plan
+### 1. Review Plan Critically
+
+Read the plan file. Before parsing tasks, review the plan as a whole:
+- Does the architecture make sense?
+- Are there gaps or ambiguities?
+- Do the parallel groups look correctly organized?
+
+**If concerns:** Raise them with the user before proceeding.
+**If no concerns:** Continue to step 2.
+
+### 2. Parse the Plan
 
 Read the plan file once. Extract:
 - All groups with their tasks
 - Per task: full text, file lists, model annotation, dependencies
 - Store everything — workers get full task text, not file references
 
-### 2. Validate Groups
+### 3. Validate Groups
 
 For each group, verify no two tasks share a write file. If overlap found:
 - Stop and warn the user
 - Suggest moving conflicting task to next group
 
-### 3. Create TodoWrite
+### 4. Create TodoWrite
 
 Create a TodoWrite entry for every task across all groups.
 
-### 4. Execute Group
+### 5. Execute Group
 
 Dispatch ALL tasks in the group as parallel Task agents in a single message:
 
@@ -110,7 +122,7 @@ Fill in the scoped-worker-prompt.md template for each task:
 - `{context}` — where this fits, what prior groups produced
 - `{model}` — haiku/sonnet/opus from plan annotation
 
-### 5. Collect Results
+### 6. Collect Results
 
 Wait for all agents. Categorize each result:
 
@@ -118,7 +130,7 @@ Wait for all agents. Categorize each result:
 - **Failure** — orchestrator diagnoses. Either fix directly or re-dispatch worker with more context. After 2 failures on the same task, handle manually or ask user.
 - **Out-of-scope request** — if small (<5 lines): orchestrator fixes directly. If significant: create a follow-up task in the next group.
 
-### 6. Commit Group
+### 7. Commit Group
 
 ```bash
 git add {all files from this group's tasks}
@@ -127,11 +139,11 @@ git commit -m "feat: group N — {brief summary of what was built}"
 
 One commit per group. Orchestrator handles all git.
 
-### 7. Next Group
+### 8. Next Group
 
-Move to the next group. Repeat from step 4.
+Move to the next group. Repeat from step 5.
 
-### 8. Finish
+### 9. Finish
 
 After all groups complete:
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
