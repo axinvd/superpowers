@@ -13,9 +13,7 @@ Assume the executor is a skilled developer but knows almost nothing about the to
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
-
-**Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
+**Context:** Invoked by brainstorming skill after design approval. Plan is written to the standard plan mode file (`.claude/plans/*.md`).
 
 ## Process
 

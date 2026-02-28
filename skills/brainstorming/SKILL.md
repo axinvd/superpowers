@@ -30,6 +30,7 @@ You MUST create a task for each of these items and complete them in order:
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Finalize design in plan file** — write to `.claude/plans/*.md`
 7. **Exit plan mode** — call `ExitPlanMode` for user approval
+8. **Invoke writing-plans** — after design approval, invoke `superpowers:writing-plans` to create the detailed implementation plan
 
 ## Process Flow
 
@@ -42,7 +43,8 @@ digraph brainstorming {
     "Present design sections" [shape=box];
     "User approves design?" [shape=diamond];
     "Write design to plan file" [shape=box];
-    "ExitPlanMode" [shape=doublecircle];
+    "ExitPlanMode (design)" [shape=box];
+    "Invoke writing-plans" [shape=doublecircle];
 
     "EnterPlanMode" -> "Explore project context";
     "Explore project context" -> "Ask clarifying questions";
@@ -51,11 +53,12 @@ digraph brainstorming {
     "Present design sections" -> "User approves design?";
     "User approves design?" -> "Present design sections" [label="no, revise"];
     "User approves design?" -> "Write design to plan file" [label="yes"];
-    "Write design to plan file" -> "ExitPlanMode";
+    "Write design to plan file" -> "ExitPlanMode (design)";
+    "ExitPlanMode (design)" -> "Invoke writing-plans";
 }
 ```
 
-**The terminal state is `ExitPlanMode`.** Do NOT invoke writing-plans, frontend-design, mcp-builder, or any other skill. The design lives in the plan file for the next session to pick up.
+**The terminal state is invoking `writing-plans`.** After design approval via `ExitPlanMode`, immediately invoke `superpowers:writing-plans` to create the detailed implementation plan. This triggers a second plan mode cycle for the implementation plan.
 
 ## The Process
 
@@ -86,7 +89,7 @@ digraph brainstorming {
 **Finalizing:**
 - Write the approved design to the plan file (`.claude/plans/*.md`)
 - Call `ExitPlanMode` — no files are created in the project
-- The design can be picked up in a new session with fresh token budget
+- After user approves: invoke `superpowers:writing-plans` to create the detailed implementation plan
 
 ## Key Principles
 
@@ -97,3 +100,4 @@ digraph brainstorming {
 - **Incremental validation** - Present design, get approval before moving on
 - **Be flexible** - Go back and clarify when something doesn't make sense
 - **No project files** - Everything stays in the plan file until implementation begins
+- **Design then plan** - After design approval, always proceed to writing-plans for the detailed implementation plan
