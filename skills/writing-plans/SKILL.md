@@ -33,7 +33,7 @@ Assume the executor is a skilled developer but knows almost nothing about the to
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
+> **For Claude:** NEXT STEP: Invoke `superpowers:subagent-driven-development` to execute this implementation plan.
 
 **Goal:** [One sentence describing what this builds]
 
