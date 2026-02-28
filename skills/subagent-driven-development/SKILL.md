@@ -134,7 +134,7 @@ Wait for all agents. Categorize each result:
 
 ```bash
 git add {all files from this group's tasks}
-git commit -m "feat: group N — {brief summary of what was built}"
+git commit -m "{type}: {brief summary of what was built}"
 ```
 
 One commit per group. Orchestrator handles all git.
@@ -180,7 +180,7 @@ Worker 1.2:
   - Files: src/middleware/auth.py, tests/middleware/test_auth.py
   - Tests: 6/6 passing
 
-[git add + commit: "feat: group 1 — user model, auth middleware"]
+[git add + commit: "feat: add user model and auth middleware"]
 [Mark Tasks 1.1, 1.2 complete]
 
 Group 2: (1 task)
@@ -191,7 +191,7 @@ Worker 2.1:
   - Success: added login endpoint
   - Tests: 5/5 passing
 
-[git add + commit: "feat: group 2 — login endpoint"]
+[git add + commit: "feat: add login endpoint"]
 [Mark Task 2.1 complete]
 
 [All groups done → finishing-a-development-branch]
